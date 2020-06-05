@@ -1,5 +1,6 @@
 """Main game file"""
 from gamestate import gamestate
+from random import choice
 
 #Engine
 #GameState
@@ -37,7 +38,7 @@ class Engine:# use @classmethod so class does not need to be instantiated
         while True:
             self.command = input(">>> ").lower()
             try:
-                if any((word in self.command for word in ("with", "and"))):
+                if any((word in self.command for word in ("with", "and", "on"))):
                     verb, obj1, temp, obj2 = self.command.split(' ')
                 else:
                     verb, obj1 = self.command.split(' ')
@@ -46,9 +47,15 @@ class Engine:# use @classmethod so class does not need to be instantiated
             except:
                 print("...BEEP, BOP, cannot compute...")
             else:
-                if verb in self.stats:
+                if not verb in self.stats:
+                    print("I don't know how to do that")
+                elif not gamestate.get(obj1):
+                    print(f"I don't see any {obj1} here.")
+                elif not gamestate.get(obj2) and obj2:
+                    print(f"I don't see any {obj2}")
+                else:
+                    print("returning")
                     return verb, obj1, obj2
-                else: print("I don't know how to do that")
         ## TODO: get words from dict
 
     def take(self, obj1, obj2):
@@ -57,7 +64,10 @@ class Engine:# use @classmethod so class does not need to be instantiated
 
     def examine(self, obj1, obj2):
         """Invoke examine() method of object"""
-        pass
+        if not obj1.stats.get("location") == player.stats.get("location"):
+            print(f"I don't see any {obj1.stats.get('name')}")
+        else:
+            return obj1.examine()
 
     def talk(self, obj1, obj2):
         """Invoke talk() method of object"""
@@ -67,9 +77,9 @@ class Engine:# use @classmethod so class does not need to be instantiated
         """Invoke use() method of object"""
         #check if operation possible
         if not obj1.stats.get("location") == player.stats.get("location"):
-            print(f"I don't see {obj1.stats.get('name')}")
-        elif not obj2.stats.get("location") == player.stats.get("location"):
-            print(f"I don't see {obj1.get('name')}")
+            print(f"I don't see any {obj1.stats.get('name')}")
+        elif obj2 and not obj2.stats.get("location") == player.stats.get("location"):
+            print(f"I don't see any {obj1.get('name')}")
         else:
             return obj1.use(obj2)
 
@@ -77,11 +87,9 @@ class Engine:# use @classmethod so class does not need to be instantiated
         """Main game loop"""
 
         while True:
-            try:
-                verb, obj1, obj2 = self.prompt()
-                self.stats.get(verb)(gamestate.get(obj1), gamestate.get(obj2))
-            except Exception as e:
-                print(e)
+            verb, obj1, obj2 = self.prompt()
+            self.stats.get(verb)(gamestate.get(obj1), gamestate.get(obj2))
+
                 #print("Couldn't find function or object")
 
 
@@ -93,19 +101,23 @@ class Actor:
         gamestate[name.lower()] = self
         self.stats = {"name": name,
                       "location": location,
+                      "examine": [f"A normal {name}", f"Just a regular {name}"],
                       "examined": False,
                       "used": False,
                       "usable": False,
                       "active": False,
-                      "activates": None
+                      "activates": []
                       }
         self.stats.update(kwargs)
+
+    def get(self, key):
+        return self.stats.get(key)
 
     def take(self):
         print("I can't take the idea of 'Actor'")
 
     def examine(self):
-        pass
+        print(self.stats.get("examine"))
 
     def use(self, obj=None): # use decorator for checks that are alway the same
         if not obj:
@@ -135,7 +147,9 @@ class Key(Actor):
 
 
 
-lock = Actor("Lock", "Room1")
+lock = Actor("Lock", "Room1",
+              examine="Looks like this old lock is a little rusty.",
+              )
 key = Key("Key", "Room1")
 item = Actor("Item", "Room2")
 player = Actor("Player", "Room1")
