@@ -192,7 +192,7 @@ class Start(Actor):
         engine.clear()
         print("Flashy music starts blasting!")
         sleep(2)
-        print("A deep, hyped up voice announces:")
+        print("A deep resounding voice announces:")
         sleep(2)
         print("WELCOME TO:\n")
         sleep(2)
