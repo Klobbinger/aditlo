@@ -42,7 +42,7 @@ class Engine:# use @classmethod so class does not need to be instantiated
                     verb, obj1 = command.split(' ')
                     obj2 = None
             except:
-                print("...BEEP, BOP, cannot compute...")
+                print("*try to properly verbalize what you want to do*")
             else:
                 return verb, obj1, obj2
 
@@ -84,7 +84,8 @@ class Actor:
     def __init__(self,
                 name,
                 location=None,
-                x_off="A regular {}.",
+                description=None,#decapitalized
+                examining_text="A regular {}.",
                 examined=False,
                 used=False,
                 usable=False,
@@ -98,13 +99,16 @@ class Actor:
                 use_words=["use", "open"],
                 examine_words=["examine", "inspect"],
                 take_words=["take", "get"],
-                talk_words=["talk", "scream"]
+                talk_words=["talk", "scream"],
+                entering_text=None,
+                enters=None
                 ):
 
         gamestate[name.lower()] = self
         self.name = name
+        self.description = description if description else name
         self.location = location if location else self
-        self.x_off = x_off
+        self.examining_text = examining_text
         self.examined = examined
         self.used = used
         self.usable = usable
@@ -119,13 +123,25 @@ class Actor:
         self.examine_words = ["examine", "inspect"]
         self.take_words = ["take", "get"]
         self.talk_words = ["talk", "scream"]
-
+        self.entering_text = entering_text
+        self.enters = enters
         # load command dict with accepted verbs
         self.commands = {}
         self.commands.update({k: self.use for k in self.use_words})
         self.commands.update({k: self.examine for k in self.examine_words})
         self.commands.update({k: self.take for k in self.take_words})
         self.commands.update({k: self.use for k in self.talk_words})
+
+        #load inventory
+    def inventory_string(self):
+        inventory = [v.description for v in gamestate.values()
+                     if v.location == self.location]
+        inventory = list(dict.fromkeys(inventory))
+        #inventory[0] = inventory[0][0].upper()+inventory[0] [1:]
+        #inventory[-1] = "and " + inventory[-1]
+        string = ', '.join(inventory)
+        return string
+
 
     def interact(self, verb, obj):
         func = self.commands.get(verb)
@@ -135,15 +151,24 @@ class Actor:
         else:
             return func(obj)
 
-    def take(self, obj):
+    def take(self, obj=None):
         if not self.takeable:
             print(self.takeable_false_text.format(self.name))
         else:
             self.location = player
             print(self.takeable_true_text.format(self.name))
 
-    def examine(self, obj):
-        print(self.x_off.format(self.name))
+    def examine(self, obj=None):
+        print(self.examining_text.format(self.name))
+        string = self.inventory_string()
+        if self.location == self:
+            choices = ["Looking around I can see {}.",
+                       "I spot {} in my vicinity.",
+                       "Alright we have {} here."]
+            print(choice(choices).format(string))
+        if obj == player:
+            print("That's me!")
+
 
     def use(self, obj):
         if not obj:
@@ -154,12 +179,13 @@ class Actor:
     def talk(self, obj):
         pass
 
-    def enter():
-        pass
+    def enter(self):
+        player.location = self
+        print(self.entering_text)
 
 
 
-class StartScreen(Actor):
+class Menu(Actor):
 
     def enter(self):
         player.location = self
@@ -171,7 +197,7 @@ class StartScreen(Actor):
             print("I can't see anything.")
             sleep(3)
             print("There, I see some floating words midst this black void!")
-            sleep(2)
+            sleep(3)
             print("They read: START, CONTINUE, LOAD, SAVE and EXIT.")
         else:
             print(dedent("""
@@ -222,11 +248,11 @@ class Start(Actor):
         """, flush=True)
         sleep(1)
         print("""
-\t\t\t\t         ____
-\t\t\t\t  ____  / __/
-\t\t\t\t / __ \/ /_
-\t\t\t\t/ /_/ / __/    _ _ _
-\t\t\t\t\____/_/      (_|_|_)
+\t\t\t\t\t         ____
+\t\t\t\t\t  ____  / __/
+\t\t\t\t\t / __ \/ /_
+\t\t\t\t\t/ /_/ / __/    _ _ _
+\t\t\t\t\t\____/_/      (_|_|_)
 
         """, flush=True)
         sleep(2)
@@ -252,9 +278,25 @@ class Start(Actor):
         sleep(2)
         print("BRRRRRRRRRRRRRRIIIIIIIIIIIING\n")
         sleep(2)
-        #return bedroom.enter()
+        return bedroom.enter()
+
+class Continue(Actor):
+    pass
+
+class Load(Actor):
+    pass
+
+class Save(Actor):
+    pass
+
+class Exit(Actor):
+    pass
 
 
+class Door(Actor):
+    def use(self, obj):
+        # TODO: define function
+        self.enters.enter()
 
 class Key(Actor):
     """A Key"""
@@ -268,20 +310,26 @@ class Key(Actor):
 
 
 
+
 bedroom = Actor("Bedroom", None)
 player = Actor("Player", bedroom)
-gamestate.update(room=player.location)
+device = Actor("Device", )
 key = Key("Key", bedroom)
 item = Actor("Item", None)
 lock = Actor("Lock", bedroom,
-            x_off="Looks like this old lock is a little rusty.")
+            examining_text="Looks like this old lock is a little rusty.")
 item2 = Actor("Item2", player)
-menu = StartScreen("Menu", None)
+menu = Menu("Menu", None)
 start = Start("Start", menu)
 
+gamestate.update(room=player.location,
+                 me=player,
+                 myself=player,
+                 self=player)
+gamestate[player.name] = player
 engine = Engine()
 engine.clear()
-#menu.enter()
+menu.enter()
 engine.play()
 
 ## TODO: Idea how to store all text and or game logic
