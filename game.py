@@ -3,6 +3,9 @@ from random import choice
 from textwrap import dedent
 import os
 from time import sleep
+from sys import argv
+
+script, START_ROOM = argv
 
 #Engine
 #GameState
@@ -49,13 +52,16 @@ class Engine:# use @classmethod so class does not need to be instantiated
 # TODO: dedent correctly
     def interact(self, verb, obj1, obj2):
         """call interact function of object"""
-        output = ["I don't see any {}",
-        "Looking real hard, but no {} in sight.",
-        dedent("""\
-        I don't have my glasses on,
-        but I'm pretty sure there's no {} here.""")]
 
-        if not self.interactable(obj1):
+        output = ["I don't see any {}",
+                  "Looking real hard, but no {} in sight.",
+                  dedent("""\
+                  I don't have my glasses on,
+                  but I'm pretty sure there's no {} here.""")]
+# TODO: implement logic to examine current room
+        if obj1 == "room" and not obj2:
+            player.location.interact(verb, obj2)
+        elif not self.interactable(obj1):
             print(choice(output).format(obj1))
         elif not self.interactable(obj2) and obj2:
             print(choice(output).format(obj2))
@@ -68,11 +74,13 @@ class Engine:# use @classmethod so class does not need to be instantiated
         """check if object in player location"""
         bool = False
         if obj in gamestate:
-            bool = gamestate.get(obj).location in (player.location, player)
+            bool = gamestate.get(obj).location in (player.location, player) and\
+                   gamestate.get(obj).visible
         return bool
 
     def play(self):
         """Main game loop"""
+        gamestate.get(START_ROOM).enter()
         while True:
             verb, obj1, obj2 = self.prompt()
             self.interact(verb, obj1, obj2)
@@ -100,8 +108,10 @@ class Actor:
                 examine_words=["examine", "inspect"],
                 take_words=["take", "get"],
                 talk_words=["talk", "scream"],
-                entering_text=None,
-                enters=None
+                entering_text="You entered the {}.",
+                enters=None,
+                visible=True,
+                makes_visible=None
                 ):
 
         gamestate[name.lower()] = self
@@ -119,12 +129,14 @@ class Actor:
         self.takeable_true_text = dedent(f"""\
                                         *{name} added to inventory*
                                         Maybe I can use that later.""")
-        self.use_words = ["use", "open"]
-        self.examine_words = ["examine", "inspect"]
-        self.take_words = ["take", "get"]
-        self.talk_words = ["talk", "scream"]
+        self.use_words = use_words
+        self.examine_words = examine_words
+        self.take_words = take_words
+        self.talk_words = talk_words
         self.entering_text = entering_text
         self.enters = enters
+        self.visible = visible
+        self.makes_visible = makes_visible
         # load command dict with accepted verbs
         self.commands = {}
         self.commands.update({k: self.use for k in self.use_words})
@@ -134,11 +146,13 @@ class Actor:
 
         #load inventory
     def inventory_string(self):
-        inventory = [v.description for v in gamestate.values()
-                     if v.location == self.location]
+        inventory = [v.description for k, v in gamestate.items()
+                     if v.location == self
+                     and v not in (self, player)
+                     and v.visible]
         inventory = list(dict.fromkeys(inventory))
         #inventory[0] = inventory[0][0].upper()+inventory[0] [1:]
-        #inventory[-1] = "and " + inventory[-1]
+        inventory[-1] = "and " + inventory[-1]
         string = ', '.join(inventory)
         return string
 
@@ -159,29 +173,38 @@ class Actor:
             print(self.takeable_true_text.format(self.name))
 
     def examine(self, obj=None):
-        print(self.examining_text.format(self.name))
-        string = self.inventory_string()
+        if self.visible:
+            print(self.examining_text.format(self.name))
+            self.examined = True
         if self.location == self:
             choices = ["Looking around I can see {}.",
                        "I spot {} in my vicinity.",
-                       "Alright we have {} here."]
-            print(choice(choices).format(string))
-        if obj == player:
-            print("That's me!")
+                       "Alright let's see. We have {} here."]
+            print(choice(choices).format(self.inventory_string()))
+        if self == player:
+            print("I have {} in my pockets.".format(self.inventory_string()))
 
-
+# TODO: Write decorator for use checks, so it's easier reuseable for custom use functions
     def use(self, obj):
         if not obj:
             print("Using {}".format(self.name))
         if obj in self.activates:
-            pass
+            obj.active = True
+        if self.makes_visible:
+            for i in self.makes_visible:
+                i.visible = True
 
     def talk(self, obj):
         pass
 
     def enter(self):
         player.location = self
-        print(self.entering_text)
+        gamestate.update(room=self.location)
+        if not self.active:
+            self.active = True
+            print(self.entering_text.format(self.name))
+        else:
+            print(self.entering_text.format(self.name), "Again.")
 
 
 
@@ -189,6 +212,7 @@ class Menu(Actor):
 
     def enter(self):
         player.location = self
+        gamestate.update(room=self.location)
         if not self.active:
             print("...")
             sleep(3)
@@ -198,30 +222,23 @@ class Menu(Actor):
             sleep(3)
             print("There, I see some floating words midst this black void!")
             sleep(3)
-            print("They read: START, CONTINUE, LOAD, SAVE and EXIT.")
+            print("They read: START, LOAD, SAVE and LEAVE.")
+            self.active = True
         else:
-            print(dedent("""
-                         Back in the black void.
-                         Only things here are:
-                         START, CONTINUE, LOAD, SAVE and EXIT
-                         """))
+# TODO: Move this logic into object being used
+            print(self.entering_text)
 
-        while True:
-            command = input(">>> ").lower()
-            if command == "start":
-                return start.use()
-            elif command in ("save", "load", "continue"):
-                print("Not yet implemented.")
-            elif command == "exit":
-                print("You can run, but you can't hide!")
-                exit()
-            else:
-                print("What? Learn to type properly you dumb fuck!")
+
+class Door(Actor):
+    def use(self, obj):
+        # TODO: define function
+        self.location, self.enters, __ =\
+        self.enters, self.location, self.enters.enter()
 
 
 class Start(Actor):
 
-    def use(self):
+    def use(self, obj):
         engine.clear()
         print("Flashy music starts blasting!")
         sleep(2)
@@ -280,8 +297,16 @@ class Start(Actor):
         sleep(2)
         return bedroom.enter()
 
-class Continue(Actor):
-    pass
+class Device(Actor):
+    def use(self, obj):
+        if player.location != self.enters:
+            self.marker = player.location
+            print("You're being sucked into the portal!")
+            self.enters.enter()
+        else:
+            print("The portal spits you out!")
+            self.marker.enter()
+
 
 class Load(Actor):
     pass
@@ -289,14 +314,12 @@ class Load(Actor):
 class Save(Actor):
     pass
 
-class Exit(Actor):
-    pass
-
-
-class Door(Actor):
+class Leave(Actor):
     def use(self, obj):
-        # TODO: define function
-        self.enters.enter()
+        print("You can run, but I will haunt you!")
+        exit()
+
+
 
 class Key(Actor):
     """A Key"""
@@ -310,27 +333,43 @@ class Key(Actor):
 
 
 
+# TODO: get parameters from external file
+menu = Menu("Menu", examining_text=dedent("""\
+             Nothing but darkness. Any sense of time is absent here.
+             """),
+             entering_text=dedent("""\
+                          Back in the black void.
+                          Only things here are:
+                          START, LOAD, SAVE, LEAVE.
+                          """))
 
-bedroom = Actor("Bedroom", None)
-player = Actor("Player", bedroom)
-device = Actor("Device", )
-key = Key("Key", bedroom)
+player = Actor("Player", location=None, use_words=["use", "interact", "touch", "push"])
+
+start = Start("Start", location=menu, use_words=["use", "interact", "touch", "push"])
+load = Load("Load", location=menu, use_words=["use", "interact", "touch", "push"])
+save = Save("Save", location=menu, use_words=["use", "interact", "touch", "push"])
+leave = Leave("Leave", location=menu, use_words=["use", "interact", "touch", "push"])
+
+device = Device("Device", player, enters=menu, description="a strange device",
+                examining_text="A strange device without a real shape. A small little bump on the surface does looks movable.")
+
+bedroom = Actor("Bedroom")
+key = Key("Key", bedroom, description="a brass key")
 item = Actor("Item", None)
 lock = Actor("Lock", bedroom,
-            examining_text="Looks like this old lock is a little rusty.")
-item2 = Actor("Item2", player)
-menu = Menu("Menu", None)
-start = Start("Start", menu)
-
-gamestate.update(room=player.location,
-                 me=player,
+            examining_text="Looks like this old lock is a little rusty.",
+            description="an old lock")
+door = Door("Door", bedroom, enters=menu)
+# TODO: fix bug when player name is equal to another object name
+gamestate.update(me=player,
                  myself=player,
                  self=player)
 gamestate[player.name] = player
+gamestate["room"] = player.location
 engine = Engine()
 engine.clear()
-menu.enter()
 engine.play()
+
 
 ## TODO: Idea how to store all text and or game logic
 ## todo: one module for each room
