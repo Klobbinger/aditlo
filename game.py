@@ -60,22 +60,24 @@ class Engine:# use @classmethod so class does not need to be instantiated
                   I don't have my glasses on,
                   but I'm pretty sure there's no {} here.""")]
 # TODO: implement logic to examine current room
-        obj1 = self.interactable(obj1)
-        obj2 = self.interactable(obj2)
-
-        if not obj1:
+        _obj1 = self.interactable(obj1)
+        _obj2 = self.interactable(obj2)
+        if not _obj1:
             print(choice(output).format(obj1))
-        elif not obj2:
+        elif obj2 and not _obj2:
             print(choice(output).format(obj2))
         else:
-            obj1.interact(verb, obj2)
+            _obj1.interact(verb, _obj2)
 
 
 
     def interactable(self, obj):
         """returns interactable object in player location, else None"""
+        print(gamestate.get(obj))
+        input()
         if gamestate.get(obj):
             for o in gamestate.get(obj):
+                print(o.location.name, "player loc", player.location.name)
                 if o.location in (player.location, player):
                     return o
         else:
