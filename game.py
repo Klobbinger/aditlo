@@ -75,7 +75,7 @@ class Engine:# use @classmethod so class does not need to be instantiated
 
         if gamestate.get(obj):
             for o in gamestate.get(obj):
-                if o.location in (player.location, player):
+                if o.location in (player.location, player) and o.visible:
                     return o
         else:
             return False
@@ -89,56 +89,74 @@ class Engine:# use @classmethod so class does not need to be instantiated
             self.interact(verb, obj1, obj2)
 
 class Actor:
-    """Parent Actor class. Takes keyword for user input, identifier name, location."""
+    """
+    Parent Actor class. Takes keyword for user input, identifier name, location.
+    """
 
     def __init__(self,
+                # accepted names
                 name=("DUMMY",),
                 location=None,
-                description=None, # decapitalized
-                examined=False,
-                examining_text_false=None,
-                examining_text_true=None,
-                examining_text_used=None,
-                used=False,
-                using_text_inactive=None,
-                using_text_active=None,
-                usable_with=False,
-                active=True,
-                activates=(),
-                takeable=False,
-                take_false_text=None,
-                take_true_text=None,
-                entering_text="You entered {}.",
+                description=None, # decapitalized and include article
                 visible=True,
-                use_makes_visible=(),
+                # examine
+                examined=False,
+                examined_false_text=None,
+                examined_true_text=None,
                 examine_makes_visible=(),
+                # use
+                used=False,
+                used_true_text=None,
+                usable=False,
+                usable_true_text=None,
+                usable_false_text=None,
+                usable_with=False,
+                del_after_use=False,
+                active=True,
+                active_true_text=None,
+                active_false_text=None,
+                activates=(),
+                makes_usable=(),
+                makes_takeable=(),
+                use_makes_visible=(),
+                has_special=False,
+                # take
+                takeable=False,
+                takeable_false_text=None,
+                takeable_true_text=None,
+
+                entering_text="You entered {}.",
+                # accepted commands
                 use_words=(),
                 examine_words=(),
                 take_words=(),
-                talk_words=()
+                talk_words=(),
                 ):
 
 
-        self.name = list(name)
-        self.description = description if description else self.name[0]
-        self.location = location if location else self
-        self.examining_text_true=examining_text_true if  examining_text_true else self.description
-        self.examining_text_false=examining_text_false if examining_text_false else self.examining_text_true
+        self.name = name
+        self.description = description or self.name[0]
+        self.location = location or self
+        self.examined_true_text= (examining_text_true or
+                                 self.description)
+        self.examined_false_text= (examining_text_false or
+                                   self.examined_true_text)
         self.examined = examined
         self.used = used
         self.active = active
         self.activates = activates
         self.takeable = takeable
-        self.take_false_text = take_false_text if take_false_text else f"I can't take this {name[0]}."
-        self.take_true_text = (take_true_text if take_true_text
-                                    else dedent(f"""\
-                                        *{name[0]} added to inventory*
-                                        Maybe I can use that later."""))
+        self.take_false_text = [take_false_text or
+                                f"I can't take this {name[0]}."]
+        self.take_true_text = [take_true_text or
+                               dedent(f"""\
+                               *{name[0]} added to inventory*
+                               Maybe I can use that later.""")]
         self.use_words = ("use",) + use_words
         self.examine_words = ("examine", "inspect", "look") + examine_words
         self.take_words = ("take", "get", "pick") + take_words
         self.talk_words = ("talk", "scream") + talk_words
-        self.entering_text = entering_text
+        self.entering_text = entering_text or f"You entered {self.description}"
         self.enters = enters
         self.visible = visible
         self.use_makes_visible = use_makes_visible
@@ -157,6 +175,8 @@ class Actor:
 
         #load inventory
     def inventory_string(self):
+        """dervive list of items in room or inventory as text"""
+
         inventory = []
         for v in gamestate.values():
             for i in v:
@@ -172,45 +192,137 @@ class Actor:
         string = ', '.join(inventory)
         return string
 
+    def popback(self, list):
+        """pop first item and move to back of list"""
+
+        item = list.pop(0)
+        list.append(item)
+        return item
 
     def interact(self, verb, obj):
-        func = self.commands.get(verb)
-        if not func:
-            print(choice(["I can't do that.", "Nah.", "I don't know how.",
-                          "Seems dumb", "No sane person would attempt this."]))
-        else:
-            return func(obj)
+        """check verb and call appropriate method"""
 
-    def take(self, obj=None):
+        func = self.commands.get(verb)
+        if not obj:
+            return func()
+        elif obj in self.usable_with and func == self.use:
+            return func(obj)
+        else:
+            print(choice(["I can't do that.",
+                          "Nah.", "I don't know how.",
+                          "Seems dumb",
+                          "No sane person would even attempt to do this."]))
+
+    def take(self):
+        """put item in inventory"""
+
         if not self.takeable:
-            print(self.takeable_false_text.format(self.name[0]))
+            print(self.popback(self.takeable_false_text))
         else:
             self.location = player
-            print(self.takeable_true_text.format(self.name[0]))
+            print(self.popback(self.takeable_true_text))
 
-    def examine(self, obj=None):
+    def examine(self):
+        """examine object"""
+# TODO: examine text if used True and False
         if self.visible:
-            print(self.examining_text.format(self.name[0]))
+            if self.examined:
+                print(self.popback(self.examining_text_true))
             self.examined = True
+            for i in self.examine_makes_visible:
+                i.visible = True
+
         if self.location == self:
             choices = ["Looking around I can see {}.",
                        "I spot {} in my vicinity.",
                        "Alright let's see. We have {} here."]
             print(choice(choices).format(self.inventory_string()))
+
         if self == player:
             print("I have {} in my pockets.".format(self.inventory_string()))
 
 # TODO: Write decorator for use checks, so it's easier reuseable for custom use functions
-    def use(self, obj):
-        if not obj:
-            print("Using {}".format(self.name))
+    def use(self, obj=None):
+        """use object depending on its parameters"""
+# TODO: add different "can't interact with specific item" texts
+        if not self.active:
+            print(self.popback(self.active_false_text))
+            return
+
+        elif self.usable_with:
+
+            if not obj:
+                print(self.popback(self.active_true_text))
+                return
+
+            elif not obj.usable and obj not in self.makes_usable:
+                print(self.popback(obj.usable_false_text))
+                return
+
+        elif self.has_special:
+            return self.special(obj)
+
+        else:
+            self.action(obj, internal=True)
+
+
+
+
+            if obj in self.activates:
+                obj.active = True
+            else:
+                for i in self.activates:
+                    i.active = not i.activates
+
+            if obj in self.makes_usable:
+                obj.usable = True
+            else:
+                for i in self.makes_usable:
+                    i.usable = True
+
+            if obj in self.makes_takeable:
+                obj.takeable = True
+            else:
+                for i in self.makes_takeable:
+                    i.takeable = True
+
+            if self.del_after_use:
+                self.location = self
+
+            if obj and obj.del_after_use:
+                obj.location = obj
+
+    def action(self, obj, internal=False):
+        print(self.popback(self.action_text))
+# TODO: activate everything in list even if usable with?
+        for i in self.use_makes_visible:
+            i.visible = not i.visible
+
         if obj in self.activates:
             obj.active = True
-        if self.makes_visible:
-            for i in self.makes_visible:
-                i.visible = True
+        else:
+            for i in self.activates:
+                i.active = not i.activates
 
-    def talk(self, obj):
+        if obj in self.makes_usable:
+            obj.usable = True
+        else:
+            for i in self.makes_usable:
+                i.usable = True
+
+        if obj in self.makes_takeable:
+            obj.takeable = True
+        else:
+            for i in self.makes_takeable:
+                i.takeable = True
+
+        if self.del_after_use:
+            self.location = self
+
+        if obj and obj.del_after_use:
+            obj.location = obj
+
+    def talk(self):
         choices = ["Ahem...hello?",
                    "So, what's up?",
                    "Ugh, the weather lately! Am I right?",
@@ -225,6 +337,11 @@ class Actor:
         else:
             print(self.entering_text.format(self.description), "Again.")
 
+    def special(self, obj):
+        """can be called for special object functions. e.g. a keypad"""
+
+        print("Wow, I'm a special function")
+        # if minigame succesfull call action()
 
 
 
