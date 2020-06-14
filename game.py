@@ -26,7 +26,8 @@ script, START_ROOM = argv
     #Toaster
 #TextFile
 #SaveGame
-gamestate = defaultdict(list)
+obj_dict = defaultdict(list) # defaultdict so you can append to empty keyvalue
+gamestate = {}
 WINDOWSIZE_X = 80
 WINDOWSIZE_Y = 60
 # TODO: implement different shell backgrounds and text colors
@@ -83,9 +84,9 @@ class Engine: # use @classmethod so class does not need to be instantiated
 
     def interactable(self, obj):
         """returns interactable object in player location, else None"""
-
-        if gamestate.get(obj):
-            for o in gamestate.get(obj):
+# TODO: check if better to execute direction commands differently
+        if obj_dict.get(obj):
+            for o in obj_dict.get(obj):
                 if o.location in (player.location, player) and o.visible:
                     return o
         else:
@@ -95,7 +96,7 @@ class Engine: # use @classmethod so class does not need to be instantiated
     def play(self):
         """Main game loop"""
         self.gamewindow()
-        gamestate.get(START_ROOM)[0].enter()
+        obj_dict.get(START_ROOM)[0].enter()
         while True:
             self.gamewindow()
             verb, obj1, obj2 = self.prompt()
@@ -107,8 +108,9 @@ class Actor:
     """
 
     def __init__(self,
+                cls=None,
                 # accepted names
-                name=("DUMMY",),
+                name=None,
                 location=None, # setting to self makes obj a room
                 description=None, # decapitalized and include article
                 visible=True,
@@ -139,11 +141,11 @@ class Actor:
                 has_special=False,
                 # take
                 takeable=False,
-                takeable_false_text=None,
-                takeable_true_text=None,
+                takeable_false_text=[],
+                takeable_true_text=[],
                 # door parameters
-                direction=[],
-                leads_to=None,
+                direction=(),
+                leads_to=(),
                 in_room_inventory=True,
                 #room parameters
                 entering_text=None,
@@ -151,18 +153,19 @@ class Actor:
                 use_words=(),
                 examine_words=(),
                 take_words=(),
-                talk_words=(),
+                talk_words=()
                 ):
 
 
-        self.name = name
-        self.description = description or str(self.name[0])
-        self.location = location or self
+        self.id = id
+        self.name = name or (id,)
+        self.description = description or name[0]
+        self.location = gamestate.get(location) or self
         self.visible = visible
         # examine
         self.examined = examined
         self.examined_false_text= examined_false_text or\
-            list(self.description)
+            [self.description]
         self.examined_true_text= examined_true_text or\
             self.examined_false_text
         self.examine_makes_visible = examine_makes_visible
@@ -176,28 +179,28 @@ class Actor:
         self.used_true_text = used_true_text or ["I already did that."]
         # use with
         self.usable = usable
-        self.makes_usable = makes_usable
+        self.makes_usable = (gamestate.get(k) for k in makes_usable)
         self.usable_false_text = usable_false_text or ["That doesn't work yet!"]
-        self.usable_with = usable_with
+        self.usable_with = (gamestate.get(k) for k in usable_with)
         self.usable_with_true_text = usable_with_true_text or\
             [f"I need to use that {name[0]} with something else."]
         # action
-        self.use_activates = use_activates
-        self.makes_takeable = makes_takeable
-        self.use_makes_visible = use_makes_visible
+        self.use_activates = (gamestate.get(k) for k in use_activates)
+        self.makes_takeable = (gamestate.get(k) for k in makes_takeable)
+        self.use_makes_visible = (gamestate.get(k) for k in use_makes_visible)
         self.del_after_use = del_after_use
         self.has_special = has_special
         #take
         self.takeable = takeable
         self.takeable_false_text = takeable_false_text or\
-            f"I can't take this {name[0]}."
+            [f"I can't take this {name[0]}."]
         self.takeable_true_text = takeable_true_text or\
-            dedent(f"""\
+            [dedent(f"""\
             *{name[0]} added to inventory*
-            Maybe I can use that {name[0]} later.""")
+            Maybe I can use that {name[0]} later.""")]
         # door parameters
         self.direction = direction
-        self.leads_to = leads_to
+        self.leads_to = (gamestate.get(k) for k in leads_to)
         self.in_room_inventory = in_room_inventory
         # room
         self.entering_text = entering_text or f"You entered {self.description}"
@@ -215,11 +218,11 @@ class Actor:
         self.commands.update({k: self.take for k in self.take_words})
         self.commands.update({k: self.talk for k in self.talk_words})
 
-        # load gamestate with accepted object names
+        # load obj_dict with accepted object names
         for k in self.name:
-            gamestate[k.lower()].append(self)
+            obj_dict[k.lower()].append(self)
 
-        # load gamestate with direction synonymes if door/wall
+        # load obj_dict with direction synonymes if door/wall
         self.directions = {"north": ["north", "n", "up"],
                            "east": ["east", "e", "right"],
                            "south": ["south", "s", "down"],
@@ -227,7 +230,7 @@ class Actor:
 
         for i in direction:
             for k in self.directions[i]:
-                gamestate[k.lower()].append(self)
+                obj_dict[k.lower()].append(self)
 
         #load inventory
         # TODO: only show doors that are leading some where and have object character
@@ -235,20 +238,14 @@ class Actor:
         """dervive list of items in room or inventory as text"""
 
         inventory = []
-        for v in gamestate.values():
-            print("loop 1", v)
-            input()
+        for v in obj_dict.values():
             for i in v:
-                print("loop 2", i)
-                input()
                 if (i.location == self and
                     i not in (self, player) and
                     i.visible and i.in_room_inventory):
                     inventory.append(i.description)
-                    print("append", i.description)
-                    input()
-        print(inventory)
-        input()
+
+
         # remove duplicates
         inventory = list(dict.fromkeys(inventory))
         inventory[-1] = "and " + inventory[-1]
@@ -462,7 +459,7 @@ class Start(Actor):
         print("...ehm...")
         sleep(2)
         player.name = input("...sorry kid, what's your name again?\n")
-        gamestate[player.name[0]] = player
+        obj_dict[player.name[0]] = player
         sleep(1)
         print("Ah, yeah, alright whatever...")
         sleep(2)
@@ -504,11 +501,11 @@ class Leave(Actor):
     def use(self, obj):
         print("You can run, but I will haunt you!")
         exit()
-        
+
 
 # TODO: get parameters from external file. *dict can be used.
         # Look up conversion from csv to dict
-menu = Menu(name=("Menu","Room", "surroundings"),
+menu = Menu("menu", name=("Menu","Room", "surroundings"),
             examined_false_text=[dedent("""\
              Nothing but darkness. Any sense of time is absent here.
              """)],
@@ -518,28 +515,80 @@ menu = Menu(name=("Menu","Room", "surroundings"),
                           START, LOAD, SAVE, LEAVE.
                           """))
 # TODO: add ID in actor so that instantiation order isn't relevant.
-player = Actor(name=("Player","me", "self", "myself"), location=None, use_words=("use", "interact", "touch", "push"))
+player = Actor("player", name=("Player","me", "self", "myself"), location=None, use_words=("use", "interact", "touch", "push"))
+start = Start("start", name=("Start",), location="menu", use_words=("use", "interact", "touch", "push"))
+load = Load("load", name=("Load",), location="menu", use_words=("use", "interact", "touch", "push"))
+save = Save("save", name=("Save",), location="menu", use_words=("use", "interact", "touch", "push"))
+leave = Leave("leave", name=("Leave",), location="menu", use_words=("use", "interact", "touch", "push"))
 
-start = Start(("Start",), location=menu, use_words=("use", "interact", "touch", "push"))
-load = Load(("Load",), location=menu, use_words=("use", "interact", "touch", "push"))
-save = Save(("Save",), location=menu, use_words=("use", "interact", "touch", "push"))
-leave = Leave(("Leave",), location=menu, use_words=("use", "interact", "touch", "push"))
-
-device = Device(("Device",), player, leads_to=menu, description="a strange device", use_words=("push",), has_special=True, reusable=True,
+device = Device("device", name=("Device",), location="player", leads_to="menu", description="a strange device", use_words=("push",), has_special=True, reusable=True,
                 examined_false_text=["A strange device without a real shape.\nA small little bump on the surface looks like i could be pushed."], examine_to_activate=True)
 
-bedroom = Actor(name=("Bedroom", "Room", "Surroundings", "Area"))
-item = Actor(("Item",), None)
-lock = Actor(("Lock",), location=bedroom,
+bedroom = Actor("bedroom", name=("Bedroom", "Room", "Surroundings", "Area"))
+lock = Actor("lock", name=("Lock",), location="bedroom",
             examined_false_text=["Looks like this old lock is a little rusty."],
             description="an old lock")
-key = Actor(("Key",), bedroom, description="a brass key", active=True, usable_with_true_text=["I need to find a lock for this key."], used_false_text=["You hear a satisfying CLICK"], used_true_text=["It's already open"], usable_false_text=["The key fits the lock, but I can't turn it"], usable_with=(lock,))
-oil = Actor(("Oil",), location=bedroom, description="a can of oil", active=True, usable_with=(lock,), makes_usable=(lock,), usable_with_true_text=["I can try using this on something stuck."], used_false_text=["*pfffft* This should be enough"], used_true_text=["I think thats enough oil", "We really don't need more", "Whatever... *pffffft pffffft *\n*pffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff*\n...happy now?"])
-door = Actor(name=("Door",), location=bedroom, direction=("east", "west"), active=True, leads_to=menu, use_words=("go", "use", "walk"))
+door = Actor("door", name=("Door",), location="bedroom", direction=("east", "west"), active=False, leads_to="menu", reusable=True, use_words=("go", "use", "walk"))
+#key = Actor("key", name=("Key",), location="bedroom", description="a brass key", active=True, use_activates=("door",), usable_with_true_text=["I need to find a lock for this key."], used_false_text=["You hear a satisfying CLICK"], used_true_text=["It's already open"], usable_false_text=["The key fits the lock, but I can't turn it"], usable_with=("lock",))
+#Actor(**assets.assets.get("key"))
+oil = Actor("oil", name=("Oil",), location="bedroom", description="a can of oil", active=True, usable_with=("lock",), makes_usable=("lock",), usable_with_true_text=["I can try using this on something stuck."], used_false_text=["*pfffft* This should be enough"], used_true_text=["I think thats enough oil", "We really don't need more", "Whatever... *pffffft pffffft *\n*pffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff*\n...happy now?"])
+
+# TODO: import this data from JSON or csv in assets dict
+assets = dict(
+key=dict(
+    cls="Actor",
+    name=["Key"],
+    location="bedroom", # setting to self makes obj a room
+    description="an old brass key", # decapitalized and include article
+    visible=True,
+    # examine
+    examined=False,
+    examined_false_text=["This key looks quite old. I wonder what it will open."],
+    examined_true_text=[],
+    examine_makes_visible=(),
+    examine_to_activate=False,
+    # use
+    used=False,
+    reusable=True,
+    active=True, # can be used
+    active_false_text=[], # display if obj is not active
+    used_false_text=["You hear a satisfying CLICK as the bolt moves into place"], # display first time used
+    used_true_text=[], # display if used again
+    # use with
+    usable=False, # obj can only be used if obj makes_usable
+    makes_usable=(), # can use usable=False obj and makes usable
+    usable_false_text=["The key fits, but I can't turn the look."], # display if target obj not usable
+    usable_with=("lock",),
+    usable_with_true_text=["I guess I need to find a lock."], # display if no target object given
+    # action
+    use_activates=("door",),
+    makes_takeable=(),
+    use_makes_visible=(),
+    del_after_use=False,
+    has_special=False,
+    # take
+    takeable=True,
+    takeable_false_text=[],
+    takeable_true_text=[],
+    # door parameters
+    direction=(),
+    leads_to=(),
+    in_room_inventory=True,
+    #room parameters
+    entering_text=[],
+    # accepted commands
+    use_words=(),
+    examine_words=(),
+    take_words=(),
+    talk_words=()
+    ),
+)
+
+for v in assets.values():
+    globals().get(v.get("cls"))(**v)
+
 # TODO: fix bug when player name is equal to another object name
 # TODO: allow player to only type n to go north. Hard code in parser/interpreter
-print(gamestate)
-input()
 engine = Engine()
 engine.clear()
 engine.play()
