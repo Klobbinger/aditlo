@@ -57,9 +57,9 @@ template=dict(
 player=dict(
     cls="Player", # Actor if empty
     # accepted names
-    name=["Player", "me", "slef", "myself"],
+    name=["Player", "me", "self", "myself"],
     location="", # setting to self makes obj a room
-    description="Just old regular me.", # decapitalized and include article
+    description="Just old regular me, {}.", # decapitalized and include article
     visible=True,
     # examine
     examined=False,

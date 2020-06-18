@@ -75,16 +75,15 @@ class Engine:
 # TODO: check if better to execute direction commands differently
         if obj_dict.get(obj):
             for o in obj_dict.get(obj):
-                if o.location in (player.location, player) and o.visible:
-                    return o
-        else:
-            return False
+                if gamestate[o].location in (player.location, player.ident) and\
+                    gamestate[o].visible:
+                    return gamestate[o]
 
 
     def play(self):
         """Main game loop"""
         self.gamewindow()
-        obj_dict.get(START_ROOM)[0].enter()
+        gamestate[START_ROOM].enter()
         while True:
             self.gamewindow()
             verb, obj1, obj2 = self.prompt()
@@ -97,6 +96,7 @@ class Actor:
 
     def init(self,
         ident=None,
+        cls=None,
         # accepted names
         name=None,
         location=None, # setting to self makes obj a room
@@ -143,10 +143,10 @@ class Actor:
         take_words=[],
         talk_words=[]
         ):
-
+        self.ident = ident
         self.name = name or ["Dummy"]
         self.description = description or self.name[0]
-        self.location = gamestate.get(location) or self
+        self.location = location or ident
         self.visible = visible
         # examine
         self.examined = examined
@@ -165,15 +165,15 @@ class Actor:
         self.used_true_text = used_true_text or ["I already did that."]
         # use with
         self.usable = usable
-        self.makes_usable = [gamestate.get(k) for k in makes_usable]
+        self.makes_usable = makes_usable
         self.usable_false_text = usable_false_text or ["That doesn't work yet!"]
-        self.usable_with = [gamestate.get(k) for k in usable_with]
+        self.usable_with = usable_with
         self.usable_with_true_text = usable_with_true_text or\
             [f"I need to use that {self.name[0]} with something else."]
         # action
-        self.use_activates = [gamestate.get(k) for k in use_activates]
-        self.makes_takeable = [gamestate.get(k) for k in makes_takeable]
-        self.use_makes_visible = [gamestate.get(k) for k in use_makes_visible]
+        self.use_activates = use_activates
+        self.makes_takeable = makes_takeable
+        self.use_makes_visible = use_makes_visible
         self.del_after_use = del_after_use
         self.has_special = has_special
         #take
@@ -188,7 +188,7 @@ class Actor:
             """)]
         # door parameters
         self.direction = direction
-        self.leads_to = gamestate.get(leads_to)
+        self.leads_to = leads_to
         self.in_room_inventory = in_room_inventory
         # room
         self.entering_text = entering_text or [self.description]
@@ -209,7 +209,7 @@ class Actor:
 
         # load obj_dict with accepted object names
         for k in self.name:
-            obj_dict[k.lower()].append(self)
+            obj_dict[k.lower()].append(ident)
 
         # load obj_dict with direction synonymes if door/wall
         self.directions = {"north": ["north", "n", "up"],
@@ -219,7 +219,7 @@ class Actor:
 
         for i in direction:
             for k in self.directions[i]:
-                obj_dict[k.lower()].append(self)
+                obj_dict[k.lower()].append(ident)
 
 
         #load inventory
@@ -227,16 +227,12 @@ class Actor:
         """dervive list of items in room or inventory as text"""
 
         inventory = []
-        for v in obj_dict.values():
-            for i in v:
-                if (i.location == self and
-                    i not in (self, player) and
-                    i.visible and i.in_room_inventory):
-                    inventory.append(i.description)
+        for v in gamestate.values():
+            if (v.location == self.ident and
+                v.ident not in (self.ident, player.ident) and
+                v.visible and v.in_room_inventory):
+                inventory.append(v.description)
 
-
-        # remove duplicates
-        inventory = list(dict.fromkeys(inventory))
         inventory[-1] = "and " + inventory[-1]
         string = ', '.join(inventory)
         return string
@@ -254,7 +250,7 @@ class Actor:
         func = self.commands.get(verb)
         if not obj and func:
             return func()
-        elif obj in self.usable_with and func == self.use:
+        elif obj and obj.ident in self.usable_with and func == self.use:
             return func(obj)
         else:
             print(choice(["I can't do that.",
@@ -268,26 +264,26 @@ class Actor:
         if not self.takeable:
             print(self.popback(self.takeable_false_text))
         else:
-            self.location = player
+            self.location = player.ident
             if not self.examined:
                 print(self.popback(self.examined_false_text))
             print(self.popback(self.takeable_true_text))
 
     def examine(self):
         """examine object"""
-
+# TODO: create extra classes for player and room with own examine functions
         if not self.examined:
             self.examined = True
             for i in self.examine_makes_visible:
-                i.visible = True
+                gamestate[i].visible = True
             if self.examine_to_activate:
                 self.active = True
-            print(self.popback(self.examined_false_text))
+            print(self.popback(self.examined_false_text).format(self.name[0]))
 
         else:
-            print(self.popback(self.examined_true_text))
+            print(self.popback(self.examined_true_text).format(self.name[0]))
 
-        if self.location == self:
+        if self.location == self.ident:
             engine.clear()
             print(self.description, "\n")
             choices = ["Looking around I can see {}.",
@@ -295,7 +291,7 @@ class Actor:
                        "Alright let's see. We have {} here."]
             print(choice(choices).format(self.inventory_string()))
 
-        if self == player:
+        if self.ident == player.ident:
             print("I have {} in my pockets.".format(self.inventory_string()))
 
 
@@ -307,8 +303,6 @@ class Actor:
             return
 
         elif not self.active:
-            if not self.examined:
-                print(self.popback(self.examined_false_text),"\n")
             print(self.popback(self.active_false_text))
             return
 
@@ -317,7 +311,7 @@ class Actor:
                 print(self.popback(self.usable_with_true_text))
                 return
 
-            elif not obj.usable and obj not in self.makes_usable:
+            elif not obj.usable and obj.ident not in self.makes_usable:
                 print(self.popback(self.usable_false_text))
                 return
 
@@ -340,37 +334,37 @@ class Actor:
         self.used = not self.used
 
         for i in self.use_makes_visible:
-            i.visible = not i.visible
+            gamestate[i].visible = not gamestate[i].visible
 
-        if obj in self.use_activates:
+        if obj and obj.ident in self.use_activates:
             obj.active = not obj.active
         else:
             for i in self.use_activates:
-                i.active = not i.active
+                gamestate[i].active = not gamestate[i].active
 
-        if obj in self.makes_usable:
+        if obj and obj.ident in self.makes_usable:
             obj.usable = not obj.usable
         else:
             for i in self.makes_usable:
-                i.usable = not i.usable
+                gamestate[i].usable = not gamestate[i].usable
 
-        if obj in self.makes_takeable:
+        if obj and obj.ident in self.makes_takeable:
             obj.takeable = not obj.takeable
         else:
             for i in self.makes_takeable:
-                i.takeable = not i.takeable
+                gamestate[i].takeable = not gamestate[i].takeable
 
         if self.del_after_use:
-            self.location = self
+            self.location = self.ident
 
         if obj and obj.del_after_use:
-            obj.location = obj
+            obj.location = obj.ident
 
         if self.leads_to:
-            self.leads_to.enter()
+            gamestate[self.leads_to].enter()
 
     def enter(self):
-        player.location = self
+        player.location = self.ident
 
         engine.clear()
         print(self.name[0], "\n")
@@ -403,7 +397,8 @@ class Player(Actor):
 class Menu(Actor):
 
     def enter(self):
-        player.location = self
+        engine.clear()
+        player.location = self.ident
         if not self.active:
             print("...")
             #sleep(3)
@@ -458,8 +453,11 @@ class Start(Actor):
         engine.clear()
         print("...ehm...")
         sleep(2)
-        player.name[0] = input("...sorry kid, what's your name again?\n")
-        obj_dict[player.name[0]].append(player)
+        prompt = input("...sorry kid, what's your name again?\n")
+        while prompt.lower() in obj_dict:
+            prompt = input("That's a stupid name. Choose another!\n")
+        player.name[0] = prompt
+        obj_dict[player.name[0].lower()].append(player.ident)
         sleep(1)
         print("Ah, yeah, alright whatever...")
         sleep(2)
@@ -481,42 +479,59 @@ class Start(Actor):
         self.action()
 
 class Device(Actor):
+
+    def __init__(self):
+        self.marker = "player"
+
     def special(self, obj):
         if player.location != self.leads_to:
             self.marker = player.location
             print("You're being sucked into the portal!")
-            self.leads_to.enter()
+            gamestate[self.leads_to].enter()
         else:
             print("The portal spits you out!")
-            self.marker.enter()
+            gamestate[self.marker].enter()
 
 class Load(Actor):
+
     def special(self, obj=None):
-        if os.path.exists('savegame'):
-            with shelve.open('savegame.db') as f:
+        if os.path.exists('savegame.dir'):
+            with shelve.open('savegame') as f:
                 for k, v in f.items():
                     gamestate[k].__dict__.update(v)
-
+            obj_dict[player.name[0].lower()].append(player.ident)
             print("...game loaded...\n")
+            sleep(2)
+            gamestate[player.location].enter()
+            gamestate["start"].active = False
         else:
             print("There is no savegame.")
 
 class Save(Actor):
+
     def special(self, obj=None):
-        with shelve.open('savegame.db') as f:
-            for k, v in gamestate.items():
-                f[k] = dict(
-                    location=v.location,
-                    visible=v.visible,
-                    examined=v.examined,
-                    used=v.used,
-                    active=v.active,
-                    usable=v.usable,
-                    takeable=v.takeable
-                    )
+        print("Do you really want to save?")
+        print("This will overwrite any existing savegame!")
+        prompt = input("y/n\n>>> ").lower()
 
-        print("...game saved...\n")
+        if prompt == "y":
+            with shelve.open('savegame', flag='n', writeback=True) as f:
+                for k, v in gamestate.items():
+                    f[k] = dict(
+                        location=v.location,
+                        visible=v.visible,
+                        examined=v.examined,
+                        used=v.used,
+                        active=v.active,
+                        usable=v.usable,
+                        takeable=v.takeable
+                        )
+                f["device"].update(marker=gamestate["device"].marker)
+                f["player"].update(name=gamestate["player"].name)
 
+            print("...game saved...\n")
+        else:
+            print("...game NOT saved...\n")
 
 class Leave(Actor):
     def use(self, obj):
@@ -536,7 +551,6 @@ if __name__ == '__main__':
 # TODO: fix bug when player name is equal to another object name
 # TODO: allow player to only type n to go north. Hard code in parser/interpreter
     engine = Engine()
-    engine.clear()
     engine.play()
 
 
