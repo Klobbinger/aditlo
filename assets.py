@@ -209,7 +209,7 @@ menu=dict(
     start=dict(
         cls="Start",
         # accepted names
-        name=["start"],
+        name=["Start"],
         location="menu", # setting to self makes obj a room
         description="", # decapitalized and include article
         visible=True,
@@ -257,7 +257,7 @@ menu=dict(
     load=dict(
         cls="Load",
         # accepted names
-        name=["load"],
+        name=["Load"],
         location="menu", # setting to self makes obj a room
         description="", # decapitalized and include article
         visible=True,
@@ -305,7 +305,7 @@ menu=dict(
     save=dict(
         cls="Save",
         # accepted names
-        name=["save"],
+        name=["Save"],
         location="menu", # setting to self makes obj a room
         description="", # decapitalized and include article
         visible=True,
@@ -354,7 +354,7 @@ menu=dict(
         cls="Leave",
         # accepted names
         name=("Leave",),
-        location="leave", # setting to self makes obj a room
+        location="menu", # setting to self makes obj a room
         description="", # decapitalized and include article
         visible=True,
         # examine

@@ -5,7 +5,8 @@ from collections import defaultdict
 import os
 from time import sleep
 from sys import argv
-import shelve
+import dill
+import pickle
 from assets import assets
 
 if len(argv) > 1:
@@ -75,7 +76,7 @@ class Engine:
 # TODO: check if better to execute direction commands differently
         if obj_dict.get(obj):
             for o in obj_dict.get(obj):
-                if gamestate[o].location in (player.location, player.ident) and\
+                if gamestate[o].location in (gamestate["player"].location, "player") and\
                     gamestate[o].visible:
                     return gamestate[o]
 
@@ -94,7 +95,7 @@ class Actor:
     Parent Actor class. Takes keyword for user input, identifier name, location.
     """
 
-    def init(self,
+    def __init__(self,
         ident=None,
         cls=None,
         # accepted names
@@ -229,7 +230,7 @@ class Actor:
         inventory = []
         for v in gamestate.values():
             if (v.location == self.ident and
-                v.ident not in (self.ident, player.ident) and
+                v.ident not in (self.ident, "player") and
                 v.visible and v.in_room_inventory):
                 inventory.append(v.description)
 
@@ -264,7 +265,7 @@ class Actor:
         if not self.takeable:
             print(self.popback(self.takeable_false_text))
         else:
-            self.location = player.ident
+            self.location = "player"
             if not self.examined:
                 print(self.popback(self.examined_false_text))
             print(self.popback(self.takeable_true_text))
@@ -291,7 +292,7 @@ class Actor:
                        "Alright let's see. We have {} here."]
             print(choice(choices).format(self.inventory_string()))
 
-        if self.ident == player.ident:
+        if self.ident == "player":
             print("I have {} in my pockets.".format(self.inventory_string()))
 
 
@@ -355,16 +356,16 @@ class Actor:
                 gamestate[i].takeable = not gamestate[i].takeable
 
         if self.del_after_use:
-            self.location = self.ident
+            del gamestate[self.ident]
 
         if obj and obj.del_after_use:
-            obj.location = obj.ident
+            del gamestate[obj.ident]
 
         if self.leads_to:
             gamestate[self.leads_to].enter()
 
     def enter(self):
-        player.location = self.ident
+        gamestate["player"].location = self.ident
 
         engine.clear()
         print(self.name[0], "\n")
@@ -385,20 +386,19 @@ class Actor:
         "Ahem...hello?",
         "So, what's up?",
         "Ugh, the weather lately! Am I right?",
-        f"Hi, I'm {player.name[0]}"
+        "Hi, I'm {}".format(gamestate["player"].name[0])
         ]
 
         print(choice(choices))
 
 class Player(Actor):
-    def __init__(self):
-        globals()["player"] = self
+    pass
 
 class Menu(Actor):
 
     def enter(self):
         engine.clear()
-        player.location = self.ident
+        gamestate["player"].location = self.ident
         if not self.active:
             print("...")
             #sleep(3)
@@ -442,11 +442,11 @@ class Start(Actor):
         """, flush=True)
         sleep(1)
         print("""
-\t\t\t\t\t         ____
-\t\t\t\t\t  ____  / __/
-\t\t\t\t\t / __ \/ /_
-\t\t\t\t\t/ /_/ / __/    _ _ _
-\t\t\t\t\t\____/_/      (_|_|_)
+\t\t\t\t         ____
+\t\t\t\t  ____  / __/
+\t\t\t\t / __ \/ /_
+\t\t\t\t/ /_/ / __/    _ _ _
+\t\t\t\t\____/_/      (_|_|_)
 
         """, flush=True)
         sleep(2)
@@ -456,15 +456,15 @@ class Start(Actor):
         prompt = input("...sorry kid, what's your name again?\n")
         while prompt.lower() in obj_dict:
             prompt = input("That's a stupid name. Choose another!\n")
-        player.name[0] = prompt
-        obj_dict[player.name[0].lower()].append(player.ident)
+        gamestate["player"].name[0] = prompt
+        obj_dict[gamestate["player"].name[0].lower()].append(gamestate["player"].ident)
         sleep(1)
         print("Ah, yeah, alright whatever...")
         sleep(2)
         print("...harrumph...")
         sleep(2)
         engine.clear()
-        print("\n\n\n\t\t\tA Day in The Life of {}".format(player.name[0]),
+        print("\n\n\n\t\t\tA Day in The Life of {}".format(gamestate["player"].name[0]),
               end=' ', flush=True)
         sleep(2)
         print("the LOSER!")
@@ -479,13 +479,14 @@ class Start(Actor):
         self.action()
 
 class Device(Actor):
-
-    def __init__(self):
-        self.marker = "player"
+    pass
+    def __init__(self, **kwargs):
+        self.marker = "menu"
+        super().__init__(**kwargs)
 
     def special(self, obj):
-        if player.location != self.leads_to:
-            self.marker = player.location
+        if gamestate["player"].location != self.leads_to:
+            self.marker = gamestate["player"].location
             print("You're being sucked into the portal!")
             gamestate[self.leads_to].enter()
         else:
@@ -495,15 +496,17 @@ class Device(Actor):
 class Load(Actor):
 
     def special(self, obj=None):
-        if os.path.exists('savegame.dir'):
-            with shelve.open('savegame') as f:
-                for k, v in f.items():
-                    gamestate[k].__dict__.update(v)
-            obj_dict[player.name[0].lower()].append(player.ident)
+        if os.path.exists('savegame'):
+            gamestate.clear()
+            obj_dict.clear()
+            with open('savegame', 'rb') as f:
+                gamestate.update(pickle.load(f))
+                obj_dict.update(pickle.load(f))
+
             print("...game loaded...\n")
             sleep(2)
-            gamestate[player.location].enter()
-            gamestate["start"].active = False
+            gamestate[gamestate["player"].location].enter()
+
         else:
             print("There is no savegame.")
 
@@ -515,38 +518,29 @@ class Save(Actor):
         prompt = input("y/n\n>>> ").lower()
 
         if prompt == "y":
-            with shelve.open('savegame', flag='n', writeback=True) as f:
-                for k, v in gamestate.items():
-                    f[k] = dict(
-                        location=v.location,
-                        visible=v.visible,
-                        examined=v.examined,
-                        used=v.used,
-                        active=v.active,
-                        usable=v.usable,
-                        takeable=v.takeable
-                        )
-                f["device"].update(marker=gamestate["device"].marker)
-                f["player"].update(name=gamestate["player"].name)
-
+            with open('savegame', 'wb') as f:
+                pickle.dump(gamestate, f)
+                pickle.dump(obj_dict, f)
             print("...game saved...\n")
         else:
             print("...game NOT saved...\n")
 
 class Leave(Actor):
-    def use(self, obj):
-        print("You can run, but I will haunt you!")
+    def use(self):
         exit()
+
+    # def use(self, obj):
+    #     print("You can run, but I will haunt you!")
+    #     exit()
 
 
 
 if __name__ == '__main__':
 
-    gamestate.update({k: globals().get(v.get("cls"))() for k, v in assets.items()})
+    gamestate.update({k: globals().get(v.get("cls"))(ident=k, **assets.get(k)) for k, v in assets.items()})
 
-    for k, v in gamestate.items():
-        v.init(k, **assets.get(k))
-
+    # for k, v in gamestate.items():
+    #     v.init(k, **assets.get(k))
 
 # TODO: fix bug when player name is equal to another object name
 # TODO: allow player to only type n to go north. Hard code in parser/interpreter
