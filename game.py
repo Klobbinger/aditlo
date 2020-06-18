@@ -391,6 +391,12 @@ class Actor:
 
         print(choice(choices))
 
+class Room(Actor):
+    pass
+
+class Door(Actor):
+    pass
+
 class Player(Actor):
     pass
 
@@ -537,7 +543,10 @@ class Leave(Actor):
 
 if __name__ == '__main__':
 
-    gamestate.update({k: globals().get(v.get("cls"))(ident=k, **assets.get(k)) for k, v in assets.items()})
+    for k, v in assets.items():
+        gamestate[k] = globals().get(v.get("cls"))(ident=k, **assets.get(k))
+
+    #gamestate.update({k: globals().get(v.get("cls"))(ident=k, **assets.get(k)) for k, v in assets.items()})
 
     # for k, v in gamestate.items():
     #     v.init(k, **assets.get(k))
