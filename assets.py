@@ -270,7 +270,7 @@ menu=dict(
         # use
         used=False,
         reusable=True,
-        active=False, # can be used
+        active=True, # can be used
         active_false_text=[], # display if obj is not active
         used_false_text=[], # display first time used
         used_true_text=[], # display if used again
@@ -285,7 +285,7 @@ menu=dict(
         makes_takeable=[],
         use_makes_visible=[],
         del_after_use=False,
-        has_special=False,
+        has_special=True,
         # take
         takeable=False,
         takeable_false_text=[],
@@ -318,7 +318,7 @@ menu=dict(
         # use
         used=False,
         reusable=True,
-        active=False, # can be used
+        active=True, # can be used
         active_false_text=[], # display if obj is not active
         used_false_text=[], # display first time used
         used_true_text=[], # display if used again
@@ -333,7 +333,7 @@ menu=dict(
         makes_takeable=[],
         use_makes_visible=[],
         del_after_use=False,
-        has_special=False,
+        has_special=True,
         # take
         takeable=False,
         takeable_false_text=[],

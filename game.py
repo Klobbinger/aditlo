@@ -5,7 +5,7 @@ from collections import defaultdict
 import os
 from time import sleep
 from sys import argv
-
+import shelve
 from assets import assets
 
 if len(argv) > 1:
@@ -13,33 +13,16 @@ if len(argv) > 1:
 else:
     START_ROOM = "menu"
 
-#Engine
-#GameState
-#Room
-    #StartScreen
-    #Bedroom
-    #Kitchen
-    #Bathroom
-    #Corridor
-    #Livingroom
-#Characters
-    #Player
-    #Enemy
-#Objects
-    #Door
-    #Key
-    #Toaster
-#TextFile
-#SaveGame
+
 obj_dict = defaultdict(list) # defaultdict so you can append to empty keyvalue
-gamestate = {}
+gamestate = {} # holds unique key and corresponding object as value
 WINDOWSIZE_X = 100
 WINDOWSIZE_Y = 60
 # TODO: implement different shell backgrounds and text colors
 # TODO: ensure platform compatibility
-class Engine: # use @classmethod so class does not need to be instantiated
+class Engine:
     """Contains main game loop and input parser"""
-
+# TODO: add trigger timer function that starts timer in second thread
     def clear(self):
         """clear terminal window"""
         _ = os.system("cls") if os.name == "nt" else os.system("clear")
@@ -113,7 +96,7 @@ class Actor:
     """
 
     def init(self,
-        cls=None,
+        ident=None,
         # accepted names
         name=None,
         location=None, # setting to self makes obj a room
@@ -238,6 +221,7 @@ class Actor:
             for k in self.directions[i]:
                 obj_dict[k.lower()].append(self)
 
+
         #load inventory
     def inventory_string(self):
         """dervive list of items in room or inventory as text"""
@@ -291,7 +275,7 @@ class Actor:
 
     def examine(self):
         """examine object"""
-# TODO: examine text if used True and False
+
         if not self.examined:
             self.examined = True
             for i in self.examine_makes_visible:
@@ -422,13 +406,13 @@ class Menu(Actor):
         player.location = self
         if not self.active:
             print("...")
-            sleep(3)
+            #sleep(3)
             print("Is this a dream?")
-            sleep(2)
+            #sleep(2)
             print("I can't see anything.")
-            sleep(3)
+            #sleep(3)
             print("There, I see some floating words midst this black void!")
-            sleep(3)
+            #sleep(3)
             print("They read: START, LOAD, SAVE and LEAVE.")
             self.active = True
         else:
@@ -507,10 +491,32 @@ class Device(Actor):
             self.marker.enter()
 
 class Load(Actor):
-    pass
+    def special(self, obj=None):
+        if os.path.exists('savegame'):
+            with shelve.open('savegame.db') as f:
+                for k, v in f.items():
+                    gamestate[k].__dict__.update(v)
+
+            print("...game loaded...\n")
+        else:
+            print("There is no savegame.")
 
 class Save(Actor):
-    pass
+    def special(self, obj=None):
+        with shelve.open('savegame.db') as f:
+            for k, v in gamestate.items():
+                f[k] = dict(
+                    location=v.location,
+                    visible=v.visible,
+                    examined=v.examined,
+                    used=v.used,
+                    active=v.active,
+                    usable=v.usable,
+                    takeable=v.takeable
+                    )
+
+        print("...game saved...\n")
+
 
 class Leave(Actor):
     def use(self, obj):
@@ -524,7 +530,7 @@ if __name__ == '__main__':
     gamestate.update({k: globals().get(v.get("cls"))() for k, v in assets.items()})
 
     for k, v in gamestate.items():
-        v.init(**assets.get(k))
+        v.init(k, **assets.get(k))
 
 
 # TODO: fix bug when player name is equal to another object name
