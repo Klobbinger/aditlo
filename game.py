@@ -382,6 +382,7 @@ class Actor:
 
 
     def talk(self):
+        # TODO: write conversation class. based on nodes
         choices = [
         "Ahem...hello?",
         "So, what's up?",
@@ -400,6 +401,9 @@ class Door(Actor):
 class Player(Actor):
     pass
 
+class Npc(Actor):
+    pass
+    # TODO: hold conversation graph
 class Menu(Actor):
 
     def enter(self):
@@ -546,15 +550,7 @@ if __name__ == '__main__':
     for k, v in assets.items():
         gamestate[k] = globals().get(v.get("cls"))(ident=k, **assets.get(k))
 
-    #gamestate.update({k: globals().get(v.get("cls"))(ident=k, **assets.get(k)) for k, v in assets.items()})
 
-    # for k, v in gamestate.items():
-    #     v.init(k, **assets.get(k))
-
-# TODO: fix bug when player name is equal to another object name
 # TODO: allow player to only type n to go north. Hard code in parser/interpreter
     engine = Engine()
     engine.play()
-
-
-## TODO: Idea how to store all text and or game logic
