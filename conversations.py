@@ -86,8 +86,5 @@ def get_choice(choices):
 
 convo()
 
-<<<<<<< HEAD
 #test pull test
-=======
->>>>>>> 330a9b3c9a66103f266691252bb91785bd1e8ebe
 # TODO: https://stackoverflow.com/questions/5290994/remove-and-replace-printed-items
