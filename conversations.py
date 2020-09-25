@@ -58,7 +58,8 @@ convos = dict(
     B=ConvoNode("Hi", True, False, False),
     C=ConvoNode("Bye", True, True, True)
     )
-
+# TODO: show conversation option based on value of variable
+# TODO: after conversation tree of side conversation is finished, go back to main branch
 def convo():
     engine.clear()
     current = d['0']
