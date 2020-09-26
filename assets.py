@@ -102,7 +102,7 @@ player=dict(
     take_words=[],
     talk_words=[]
     ),
-    device=dict(
+device=dict(
         cls="Device",
         # accepted names
         name=["Device"],
@@ -532,7 +532,7 @@ bedroom=dict(
         takeable_false_text=[],
         takeable_true_text=[],
         # door parameters
-        direction=("east","south", "west"), # north, east, south, west
+        direction=("east","south","west"), # north, east, south, west
         leads_to="", # room that will be entered on use
         in_room_inventory=False, # displayed in room inventory
         #room parameters
@@ -611,7 +611,7 @@ bedroom=dict(
         active=True, # can be used
         active_false_text=[], # display if obj is not active
         used_false_text=["*pfffft* This should be enough"], # display first time used
-        used_true_text=["I think thats enough oil",
+        used_true_text=["I think that's enough oil",
                         "We really don't need more",
                         "Whatever... *pffffft pffffft *\n*pffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff*\n...happy now?"], # display if used again
         # use with

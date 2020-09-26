@@ -5,7 +5,7 @@ from collections import defaultdict
 import os
 from time import sleep
 from sys import argv
-import dill
+#import dill
 import pickle
 from assets import assets
 
@@ -216,7 +216,7 @@ class Actor:
         self.directions = {"north": ["north", "n", "up"],
                            "east": ["east", "e", "right"],
                            "south": ["south", "s", "down"],
-                           "west": ["westh", "w", "left"]}
+                           "west": ["west", "w", "left"]}
 
         for i in direction:
             for k in self.directions[i]:
@@ -234,7 +234,8 @@ class Actor:
                 v.visible and v.in_room_inventory):
                 inventory.append(v.description)
 
-        inventory[-1] = "and " + inventory[-1]
+        if len(inventory) > 2:
+            inventory[-1] = "and " + inventory[-1]
         string = ', '.join(inventory)
         return string
 
@@ -489,7 +490,6 @@ class Start(Actor):
         self.action()
 
 class Device(Actor):
-    pass
     def __init__(self, **kwargs):
         self.marker = "menu"
         super().__init__(**kwargs)
