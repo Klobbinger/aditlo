@@ -427,6 +427,7 @@ class Menu(Actor):
         gamestate["player"].location = self.ident
         if not self.active:
             print("...")
+<<<<<<< HEAD
             sleep(3)
             print("Is this a dream?")
             sleep(2)
@@ -434,6 +435,15 @@ class Menu(Actor):
             sleep(3)
             print("There, I see some floating words midst this black void!")
             sleep(3)
+=======
+            # sleep(3)
+            print("Is this a dream?")
+            # sleep(2)
+            print("I can't see anything.")
+            # sleep(3)
+            print("There, I see some floating words midst this black void!")
+            # sleep(3)
+>>>>>>> 6d731cf693edbeca0334093ac538b673e321059c
             print("They read: START, LOAD, SAVE and LEAVE.")
             self.active = True
         else:
