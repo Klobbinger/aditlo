@@ -211,7 +211,7 @@ menu=dict(
         # accepted names
         name=["Start"],
         location="menu", # setting to self makes obj a room
-        description="", # decapitalized and include article
+        description="the Start button", # decapitalized and include article
         visible=True,
         # examine
         examined=False,
@@ -225,7 +225,7 @@ menu=dict(
         active=True, # can be used
         active_false_text=[], # display if obj is not active
         used_false_text=[""], # display first time used
-        used_true_text=["It's power seems to be gone."], # display if used again
+        used_true_text=["Its power seems to be gone."], # display if used again
         # use with
         usable=False, # obj can only be used if obj makes_usable
         makes_usable=[], # can use usable=False obj and makes usable
@@ -249,7 +249,7 @@ menu=dict(
         #room parameters
         entering_text=[],
         # accepted commands
-        use_words=["use", "interact", "touch", "push"],
+        use_words=["use", "interact", "touch", "push", "press"],
         examine_words=[],
         take_words=[],
         talk_words=[]
@@ -297,7 +297,7 @@ menu=dict(
         #room parameters
         entering_text=[],
         # accepted commands
-        use_words=["use", "interact", "touch", "push"],
+        use_words=["use", "interact", "touch", "push", "press"],
         examine_words=[],
         take_words=[],
         talk_words=[]
@@ -345,7 +345,7 @@ menu=dict(
         #room parameters
         entering_text=[],
         # accepted commands
-        use_words=["use", "interact", "touch", "push"],
+        use_words=["use", "interact", "touch", "push", "press"],
         examine_words=[],
         take_words=[],
         talk_words=[]
@@ -393,7 +393,7 @@ menu=dict(
         #room parameters
         entering_text=[],
         # accepted commands
-        use_words=["use", "interact", "touch", "push"],
+        use_words=["use", "interact", "touch", "push", "press"],
         examine_words=[],
         take_words=[],
         talk_words=[]
@@ -402,7 +402,7 @@ menu=dict(
 bedroom=dict(
     cls="Actor",
     # accepted names
-    name=["Bedroom","Room", "Sourroundings", "Area"],
+    name=["Bedroom","Room", "Sourroundings", "Area", "Around"],
     location="", # setting to self makes obj a room
     description="You are in your smelly bedroom", # decapitalized and include article
     visible=True,

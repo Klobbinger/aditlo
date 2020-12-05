@@ -46,7 +46,7 @@ class Engine:
             command = input(">>> ").lower()
             try:
                 if any(word in command for word in ("with", "and", "on")):
-                    verb, obj1, temp, obj2 = command.split(' ')
+                    verb, obj1, _, obj2 = command.split(' ')
                 else:
                     verb, obj1 = command.split(' ')
                     obj2 = None
@@ -514,6 +514,7 @@ class Device(Actor):
     def special(self, obj):
         if gamestate["player"].location != self.leads_to:
             self.marker = gamestate["player"].location
+            sleep(2)
             print("You're being sucked into the portal!")
             gamestate[self.leads_to].enter()
         else:
